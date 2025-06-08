@@ -1,0 +1,255 @@
+# import pandas as pd
+# import os, sys
+# import numpy as np
+# from sklearn.preprocessing import LabelEncoder
+# from sklearn.model_selection import train_test_split
+# root_path = os.path.dirname(os.path.dirname(__file__))
+# print(root_path)
+
+# class CreditFetcher:
+#     def __init__(self):
+#         self.credit_path = os.path.join(root_path, "data", "credit")
+#         self.X = None
+#         self.y = None
+
+#     def preprocess_features(
+#         self,
+#         features: pd.DataFrame,
+#         test_features: pd.DataFrame = None,
+#         encoding: str = 'ohe',
+#         test_size: float = 0.2,
+#         random_state: int = 42,
+#         stratify: bool = True
+#     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+#         """
+#         Preprocess the training set by removing ID/label columns, encoding features, aligning columns (optional with test_features), and then splitting the features into training and test sets.
+
+#         The test_features are only used for column alignment. The returned x_train, x_test, y_train, y_test are all derived from the features DataFrame.
+
+#         Parameters
+#         ----------
+#         features : pd.DataFrame
+#             Complete dataset containing SK_ID_CURR, TARGET, and features.
+#         test_features : pd.DataFrame, optional
+#             Dataset containing SK_ID_CURR (and optionally TARGET) for feature column alignment.
+#         encoding : {'ohe', 'le'}, default 'ohe'
+#             'ohe': pd.get_dummies + align
+#             'le': LabelEncoder (only for object columns)
+#         test_size : float, default 0.2
+#             Proportion of the dataset to include in the test split.
+#         random_state : int, default 42
+#             Seed for the random number generator.
+#         stratify : bool, default True
+#             Whether to perform stratified sampling based on TARGET.
+
+#         Returns
+#         -------
+#         x_train, x_test, y_train, y_test : np.ndarray
+#             Preprocessed and split feature and target arrays.
+#         """
+#         # Extract labels and drop ID/label columns
+#         y = features['TARGET'].values
+#         X = features.drop(columns=['SK_ID_CURR', 'TARGET'])
+
+#         # Drop ID/TARGET from test_features if provided
+#         if test_features is not None:
+#             X_test_align = test_features.drop(columns=[col for col in ['SK_ID_CURR', 'TARGET'] if col in test_features.columns])
+#         else:
+#             X_test_align = None
+
+#         # Encoding
+#         if encoding == 'ohe':
+#             X = pd.get_dummies(X)
+#             if X_test_align is not None:
+#                 X_test_align = pd.get_dummies(X_test_align)
+#                 # Align feature columns
+#                 X, X_test_align = X.align(X_test_align, join='inner', axis=1)
+#         elif encoding == 'le':
+#             le = LabelEncoder()
+#             for col in X.columns:
+#                 if X[col].dtype == 'object':
+#                     X[col] = le.fit_transform(X[col].astype(str))
+#                     if X_test_align is not None and col in X_test_align.columns:
+#                         X_test_align[col] = le.transform(X_test_align[col].astype(str))
+#         else:
+#             raise ValueError("encoding must be 'ohe' or 'le'")
+
+#         # Split features into train/test sets
+#         stratify_arr = y if stratify else None
+#         x_train, x_test, y_train, y_test = train_test_split(
+#             X.values, y,
+#             test_size=test_size,
+#             random_state=random_state,
+#             stratify=stratify_arr
+#         )
+
+#         return x_train, x_test, y_train, y_test
+
+
+#     def load_data(self, encoding='ohe'):
+#         """
+#         Load and preprocess credit data.
+
+#         Parameters
+#         ----------
+#         encoding : {'ohe', 'le'}, default 'ohe'
+#             Encoding method for categorical variables.
+
+#         Returns
+#         -------
+#         X_train, X_test, y_train, y_test : np.ndarray
+#             Preprocessed and split feature and target arrays.
+#         """
+#         features = pd.read_csv(os.path.join(self.credit_path, "train_credit.csv"))
+#         test_features= pd.read_csv(os.path.join(self.credit_path, "test_credit.csv"))   
+#         features = features.fillna(0)
+#         test_features = test_features.fillna(0)
+#         return self.preprocess_features(features, test_features, encoding=encoding)
+
+import pandas as pd
+import os, sys
+import numpy as np
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from imblearn.over_sampling import SMOTE, RandomOverSampler
+from imblearn.under_sampling import RandomUnderSampler
+
+root_path = os.path.dirname(os.path.dirname(__file__))
+
+class CreditFetcher:
+    def __init__(self):
+        self.credit_path = os.path.join(root_path, "data", "credit")
+
+    def preprocess_features(
+        self,
+        features: pd.DataFrame,
+        test_features: pd.DataFrame = None,
+        encoding: str = 'ohe',
+        test_size: float = 0.2,
+        random_state: int = 42,
+        stratify: bool = True,
+        sampling: str = 'smote',
+        sampling_strategy: float = 0.5
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Preprocess the training set by removing ID/label columns, encoding features,
+        aligning columns (optional with test_features), handling class imbalance via sampling,
+        and then splitting into train/test sets.
+
+        Parameters
+        ----------
+        features : pd.DataFrame
+            Complete dataset containing SK_ID_CURR, TARGET, and features.
+        test_features : pd.DataFrame, optional
+            Dataset containing SK_ID_CURR (and optionally TARGET) for feature column alignment.
+        encoding : {'ohe', 'le'}, default 'ohe'
+            'ohe': pd.get_dummies + align
+            'le': LabelEncoder (only for object columns)
+        test_size : float, default 0.2
+            Proportion of the dataset to include in the test split.
+        random_state : int, default 42
+            Seed for the random number generator.
+        stratify : bool, default True
+            Whether to perform stratified sampling based on TARGET.
+        sampling : {None, 'oversample', 'undersample', 'smote'}, default 'smote'
+            Sampling method to address class imbalance on the training set.
+        sampling_strategy : float, default 0.5
+            Sampling strategy parameter for imblearn samplers (minority/majority ratio).
+
+        Returns
+        -------
+        x_train, x_test, y_train, y_test : np.ndarray
+            Preprocessed and split feature and target arrays.
+        """
+        # Extract labels and drop ID/label columns
+        y = features['TARGET'].values
+        X = features.drop(columns=['SK_ID_CURR', 'TARGET'])
+
+        # Drop ID/TARGET from test_features if provided
+        if test_features is not None:
+            X_test_align = test_features.drop(
+                columns=[col for col in ['SK_ID_CURR', 'TARGET'] if col in test_features.columns]
+            )
+        else:
+            X_test_align = None
+
+        # Encoding
+        if encoding == 'ohe':
+            X = pd.get_dummies(X)
+            if X_test_align is not None:
+                X_test_align = pd.get_dummies(X_test_align)
+                # Align feature columns
+                X, X_test_align = X.align(X_test_align, join='inner', axis=1)
+        elif encoding == 'le':
+            le = LabelEncoder()
+            for col in X.columns:
+                if X[col].dtype == 'object':
+                    X[col] = le.fit_transform(X[col].astype(str))
+                    if X_test_align is not None and col in X_test_align.columns:
+                        X_test_align[col] = le.transform(X_test_align[col].astype(str))
+        else:
+            raise ValueError("encoding must be 'ohe' or 'le'")
+
+        # Split features into train/test sets
+        stratify_arr = y if stratify else None
+        x_train, x_test, y_train, y_test = train_test_split(
+            X.values, y,
+            test_size=test_size,
+            random_state=random_state,
+            stratify=stratify_arr
+        )
+
+        # Handle class imbalance on training set
+        if sampling:
+            if sampling == 'oversample':
+                sampler = RandomOverSampler(
+                    sampling_strategy=sampling_strategy,
+                    random_state=random_state
+                )
+            elif sampling == 'undersample':
+                sampler = RandomUnderSampler(
+                    sampling_strategy=sampling_strategy,
+                    random_state=random_state
+                )
+            elif sampling == 'smote':
+                sampler = SMOTE(
+                    sampling_strategy=sampling_strategy,
+                    random_state=random_state
+                )
+            else:
+                raise ValueError("sampling must be None, 'oversample', 'undersample', or 'smote'")
+
+            x_train, y_train = sampler.fit_resample(x_train, y_train)
+
+        return x_train, x_test, y_train, y_test
+
+    def load_data(self, encoding: str = 'ohe', sampling: str = 'smote', sampling_strategy: float = 1.0):
+        """
+        Load and preprocess credit data from CSV files, applying optional sampling.
+
+        Parameters
+        ----------
+        encoding : {'ohe', 'le'}, default 'ohe'
+            Encoding method for categorical variables.
+        sampling : {None, 'oversample', 'undersample', 'smote'}, default 'smote'
+            Sampling method to address class imbalance.
+        sampling_strategy : float, default 0.3333
+            Sampling strategy parameter for imblearn samplers.
+
+        Returns
+        -------
+        X_train, X_test, y_train, y_test : np.ndarray
+            Preprocessed and split arrays.
+        """
+        features = pd.read_csv(os.path.join(self.credit_path, "train_credit.csv"))
+        test_features = pd.read_csv(os.path.join(self.credit_path, "test_credit.csv"))
+        features = features.fillna(0)
+        test_features = test_features.fillna(0)
+
+        return self.preprocess_features(
+            features,
+            test_features,
+            encoding=encoding,
+            sampling=sampling,
+            sampling_strategy=sampling_strategy
+        )
