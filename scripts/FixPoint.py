@@ -78,6 +78,8 @@ class FixedPoint:
     
     def __repr__(self):
         return f"FixedPoint(value={self.value}, frac_bits={self.frac_bits})"
+    
+    
 
 def parse_float(float_array: np.ndarray, frac_bits=32):
     shape = float_array.shape
@@ -93,6 +95,7 @@ def parse_fix(fix_array: np.ndarray, frac_bits=32):
 
 def multiply_fixed_array(a: np.ndarray, b: np.ndarray):
     return a * b
+
 
 
 
