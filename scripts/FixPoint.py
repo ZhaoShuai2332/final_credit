@@ -74,7 +74,7 @@ class FixedPoint:
         if not isinstance(other, FixedPoint):
             raise TypeError("Operands must be FixedPoint")
             
-        return FixedPoint(self.value - other.value, self.frac_bits)
+        return FixedPoint(self.value + -1*other.value, self.frac_bits)
     
     def __repr__(self):
         return f"FixedPoint(value={self.value}, frac_bits={self.frac_bits})"
