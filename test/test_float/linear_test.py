@@ -43,4 +43,3 @@ def linear(name: str):
 if __name__ == "__main__":
     args = parse_args()
     linear(args.name)
-

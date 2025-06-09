@@ -3,6 +3,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 import numpy as np
+import pandas as pd
 from scripts.run_proms import parse_args, dataset_selecter
 from scripts.FixPoint import *
 from sklearn.metrics import (mean_squared_error, mean_absolute_error, 
@@ -17,7 +18,7 @@ def sign_bit(x: np.ndarray) -> np.ndarray:
     bits = arr.dtype.itemsize * 8
     uint_type = f'uint{bits}'
     arr_uint = arr.view(uint_type)
-    return ((arr_uint >> (bits - 1)) & 1).astype(np.uint8)
+    return ((arr_uint >> (bits - 1)) & 1).astype(int)
 
 
 def logistic_pred(linear_pred: np.ndarray, t: float) -> (np.ndarray, np.ndarray):
@@ -42,6 +43,12 @@ def f_logr_pred(linear_pred: np.ndarray, t: float) -> np.ndarray:
         thresh = np.log(t / (1.0 - t))
     return sign_bit(linear_pred - thresh)
 
+
+def sign_fix(fix_array : np.ndarray) -> np.ndarray:
+    '''
+    Extract MSB sign bit: 0 if x >= 0, 1 if x < 0.
+    '''
+    return [sign_bit(fix_v.value) for fix_v in fix_array]
 
 def compare_metrics(linear_pred: np.ndarray, y: np.ndarray, t: float) -> pd.DataFrame:
     '''

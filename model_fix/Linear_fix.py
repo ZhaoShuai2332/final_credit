@@ -6,7 +6,7 @@ sys.path.append(parent_dir)
 import numpy as np
 from scripts.FixPoint import FixedPoint
 
-class Linear_fix:
+class LinearModel:
     def __init__(self, 
                X_train : np.ndarray, 
                y_train : np.ndarray, 

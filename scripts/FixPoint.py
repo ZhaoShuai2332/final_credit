@@ -1,5 +1,7 @@
 import math
 import numpy as np
+from tqdm import tqdm
+
 
 class FixedPoint:
     def __init__(self, value, frac_bits=32, from_float=False):
@@ -96,34 +98,84 @@ def parse_fix(fix_array: np.ndarray, frac_bits=32):
 def multiply_fixed_array(a: np.ndarray, b: np.ndarray):
     return a * b
 
+import os, sys
+parent_dir = os.path.dirname(os.path.dirname(__file__))
+sys.path.append(parent_dir)
 
+input_dir = os.path.join(parent_dir, "params")
+from model_fix.Min_Max_Scaler import Min_Max_Scaler
+from scripts.run_proms import dataset_selecter
 
+def parse_params_name(dataset_name : str, model_name : str, params_keys : list, is_fix = True):
+    params = np.load(os.path.join(input_dir, f"{dataset_name}_{model_name}_params.npz"))
+    if not is_fix:
+        return dict(params)
+    new_params = {}
+    for k in params.files:
+        arr = params[k]
+        if k in params_keys:
+            fixed_arr = parse_float(arr, frac_bits=32)
+            new_params[k] = fixed_arr
+        else:
+            new_params[k] = arr
+    return new_params
 
-# def main():
-#     a = -3.14
-#     b = 2.71
-#     frac_bits = 16  # Q48.16 format
-    
-#     print(f"原始浮点数: a = {a}, b = {b}")
-    
-#     # 1. Convert float to fixed-point
-#     a_fixed = FixedPoint(a, frac_bits, from_float=True)
-#     b_fixed = FixedPoint(b, frac_bits, from_float=True)
-    
-#     print(f"定点数表示: a_fixed = {a_fixed.get_raw_value()}, b_fixed = {b_fixed.get_raw_value()}")
-    
-#     # 2. Perform fixed-point multiplication
-#     res = a_fixed * b_fixed
-    
-#     print(f"乘法结果(定点数): {res.get_raw_value()}")
-    
-#     # 3. Convert back to float
-#     ans = res.to_float()
-    
-#     print(f"乘法结果(浮点数): {ans}")
-#     print(f"精确结果: {a * b}")
-#     print(f"误差: {(a * b) - ans}")
+def parse_float_data(name, is_fix = True):
+    save_dir = os.path.join(parent_dir, "data", "fixed_data", name)
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    if not os.path.exists(os.path.join(save_dir, f"x_train_fixed.npz")):
+        train_X, test_X, train_y, test_y = dataset_selecter(name)
+        scaler = Min_Max_Scaler(name)
+        train_X = scaler.scaler_x(train_X)
+        test_X = scaler.scaler_x(test_X)
+        np.savez(os.path.join(save_dir, f"x_train_fixed.npz"), train_X)
+        np.savez(os.path.join(save_dir, f"x_test_fixed.npz"), test_X)
+        np.savez(os.path.join(save_dir, f"y_train_fixed.npz"), train_y)
+        np.savez(os.path.join(save_dir, f"y_test_fixed.npz"), test_y)
+    else:
+        print("load fixed data...")
+        # load fixed data from .npz archives and extract arrays
+        with np.load(os.path.join(save_dir, f"x_train_fixed.npz")) as data:
+            train_X = data[data.files[0]]
+        with np.load(os.path.join(save_dir, f"x_test_fixed.npz")) as data:
+            test_X = data[data.files[0]]
+        with np.load(os.path.join(save_dir, f"y_train_fixed.npz")) as data:
+            train_y = data[data.files[0]]
+        with np.load(os.path.join(save_dir, f"y_test_fixed.npz")) as data:
+            test_y = data[data.files[0]]
 
+    datasets = [train_X, test_X, train_y, test_y]
+    dataset_names = ['train_X', 'test_X', 'train_y', 'test_y']
+    
+    print(f"Dataset: {name}")
+    print("=" * 50)
+    for i, (data, name_label) in enumerate(zip(datasets, dataset_names)):
+        print(f"{name_label}:")
+        print(f"  Shape: {data.shape}")
+        print(f"  Data type: {data.dtype}")
+        print(f"  Memory usage: {data.nbytes / 1024 / 1024:.2f} MB")
+        
+        # For label datasets (train_y, test_y), count positive and negative examples
+        if 'y' in name_label:
+            unique, counts = np.unique(data, return_counts=True)
+            print(f"  Class distribution:")
+            for class_val, count in zip(unique, counts):
+                print(f"    Class {class_val}: {count} samples ({count/len(data)*100:.1f}%)")
+        
+        print("-" * 30)
 
-# if __name__ == "__main__":
-#     main()
+    if not is_fix:
+        return datasets[0], datasets[1], datasets[2], datasets[3]
+    total_elements = sum(data.size for data in datasets)
+    processed = 0
+    datasets_fixed = []
+    with tqdm(total=total_elements, desc="Converting to fixed point", unit="elements") as pbar:
+        for data in datasets:
+            data_float32 = data.astype(np.float32)
+            datasets_fixed.append(parse_float(data_float32))
+            processed += data.size
+            pbar.update(data.size)
+
+    # return parsed datasets as FixedPoint arrays
+    return datasets_fixed[0], datasets_fixed[1], datasets_fixed[2], datasets_fixed[3]

@@ -9,7 +9,8 @@ python model_test/<script_name>.py --name <dataset_name>
 def parse_args():
     """parse command line arguments"""
     parser = argparse.ArgumentParser(description='linear model test')
-    parser.add_argument('--name', type=str, help='dataset_name')
+    parser.add_argument('--name', type=str, choices=["credit"], help='dataset_name')
+    parser.add_argument('--grid_search', type=int, choices=[0, 1], help='is_fix')
     return parser.parse_args()
 
 """
