@@ -194,3 +194,7 @@ cython_debug/
 .cursorindexingignore
 data/credit/test_credit.csv
 data/credit/train_credit.csv
+data/fixed_data/credit/x_test_fixed.npz
+data/fixed_data/credit/x_train_fixed.npz
+data/fixed_data/credit/y_test_fixed.npz
+data/fixed_data/credit/y_train_fixed.npz
